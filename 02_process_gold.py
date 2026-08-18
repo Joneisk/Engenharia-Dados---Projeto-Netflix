@@ -14,13 +14,13 @@ class CreateGoldLayer:
         # Pega os valores únicos e remove nulos
         dim_df = df[[column_name]].drop_duplicates().dropna().reset_index(drop=True)
         
-        # Cria uma chave substituta (Surrogate Key) auto-incremental
+        # Cria uma chave substituta (SK) auto-incremental
         dim_df[id_col_name] = dim_df.index + 1
         
-        # Reordena as colunas para o ID ficar na frente
+    
         dim_df = dim_df[[id_col_name, column_name]]
         
-        # Salva a dimensão em Parquet
+        
         output_path = os.path.join(self.output_dir, f'{dim_name}.parquet')
         dim_df.to_parquet(output_path, index=False)
         print(f"Dimensão '{dim_name}' criada com {len(dim_df)} registros.")

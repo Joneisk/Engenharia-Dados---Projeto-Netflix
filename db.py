@@ -19,15 +19,42 @@ class DB:
             password=self.password
         )
 
-    def create_table(self, table_name, columns):
+    def create_table(self, table_name, columns, pk_column=None):
         cursor = self.conn.cursor()
         
-        # Cria a string das colunas com aspas duplas em volta do nome (ex: "cast" TEXT)
-        cols_str = ', '.join([f'"{col}" {dtype}' for col, dtype in columns.items()])
+        # Monta as colunas. Se for a coluna chave (pk_column), adiciona PRIMARY KEY
+        cols_list = []
+        for col, dtype in columns.items():
+            if col == pk_column:
+                cols_list.append(f'"{col}" {dtype} PRIMARY KEY')
+            else:
+                cols_list.append(f'"{col}" {dtype}')
+                
+        cols_str = ', '.join(cols_list)
         
-        # Coloca aspas também no nome da tabela para segurança
         cursor.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ({cols_str})')
+        self.conn.commit()
+        cursor.close()
+
+    def upsert_data(self, table_name, data, pk_column):
+        cursor = self.conn.cursor()
         
+        # 1. Prepara as colunas e os valores para o INSERT
+        columns = ', '.join([f'"{k}"' for k in data.keys()])
+        values = ', '.join(['%s'] * len(data))
+        
+        # 2. Prepara o que vai ser ATUALIZADO se o ID já existir (exclui a chave primária da atualização)
+        update_cols = ', '.join([f'"{k}" = EXCLUDED."{k}"' for k in data.keys() if k != pk_column])
+        
+        # 3. Monta a query mágica de UPSERT do PostgreSQL
+        sql = f'''
+            INSERT INTO "{table_name}" ({columns}) 
+            VALUES ({values})
+            ON CONFLICT ("{pk_column}") 
+            DO UPDATE SET {update_cols}
+        '''
+        
+        cursor.execute(sql, list(data.values()))
         self.conn.commit()
         cursor.close()
 
